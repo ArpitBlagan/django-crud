@@ -1,5 +1,8 @@
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.decorators import api_view
 import json
 from .models import User
 # Create your views here.
@@ -9,6 +12,34 @@ def getUsers(request):
         users=list(User.objects.all().values())
         return JsonResponse(users,safe=False)
     return HttpResponse(status=405)
+@csrf_exempt
+@api_view(['POST'])
+def loginUser(request):
+    body=json.loads(request.body)
+    try:
+        user=User.objects.get(email=body['email'])
+        if not user:
+            print(user)
+            return Response({"message":"Invalid email and password combination"},status=401)
+        refresh = RefreshToken.for_user(user)
+        print(refresh)
+        response = Response({"message": "Login successful"})
+        # Store access token in cookies
+        response.set_cookie('access', str(refresh.access_token), httponly=True, samesite='Lax')
+        response.set_cookie('refresh', str(refresh), httponly=True, samesite='Lax')
+        return response
+    except Exception as e:
+        print(e)
+        return Response({"message":"Internal server error"},status=500)
+    
+@csrf_exempt
+@api_view(['GET'])
+def logoutUser(request):
+    response=Response({"message":"Logout sucsessfully :)"})
+    response.delete_cookie("access")
+    response.delete_cookie("refresh")
+    return response
+
 @csrf_exempt
 def createUser(request):
     body=json.loads(request.body)
